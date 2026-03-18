@@ -1,13 +1,11 @@
 package com.ordermanagement.order.service.services;
 
 import com.ordermanagement.order.service.dto.*;
-import com.ordermanagement.order.service.exceptions.ExternalServiceException;
-import com.ordermanagement.order.service.exceptions.InvalidOrderStateException;
-import com.ordermanagement.order.service.exceptions.ResourceNotFoundException;
-import com.ordermanagement.order.service.exceptions.SerializationException;
+import com.ordermanagement.order.service.exceptions.*;
 import com.ordermanagement.order.service.repository.OrderRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClientException;
@@ -46,7 +44,12 @@ public class OrderService {
         String url=customerServiceUrl+"/customers/"+request.getCustomerId();
         restTemplate.getForObject(url, Order.class);
     } catch (RestClientException e) {
-        throw new ResourceNotFoundException("Customer not found with id " + request.getCustomerId());
+        throw new OrderException(
+                "Customer not found with id " + request.getCustomerId(),
+                "CUSTOMER_NOT_FOUND",
+                HttpStatus.NOT_FOUND,
+                "CUSTOMER_NOT_FOUND"
+        );
     }
 
         BigDecimal totalAmount = BigDecimal.ZERO;
@@ -59,18 +62,37 @@ public class OrderService {
         String shippingJson = objectMapper.writeValueAsString(request.getShippingAddress());//java object to json
         order.setShippingAddress(shippingJson);
     } catch (Exception e) {
-        throw new SerializationException("Failed to convert shipping address");
+        throw new OrderException(
+                "Failed to serialize shipping address",
+                "SERIALIZATION_ERROR",
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "SERIALIZATION_FAILED"
+        );
     }
         order.setTotalAmount(BigDecimal.ZERO);
         Long orderId = orderRepository.insertOrder(order);
         for (OrderItemRequest itemRequest : request.getItems()) {//bez it contains more products so loop through we
             String productUrl = productServiceUrl + "/products/" + itemRequest.getProductId();
-
-                ProductResponse product = restTemplate.getForObject(productUrl, ProductResponse.class);
+            ProductResponse product;
+try {
+     product = restTemplate.getForObject(productUrl, ProductResponse.class);
+}catch (RestClientException e) {
+    throw new OrderException(
+            "Product service unreachable for product " + itemRequest.getProductId(),
+            "EXTERNAL_SERVICE_ERROR",
+            HttpStatus.SERVICE_UNAVAILABLE,
+            "PRODUCT_SERVICE_DOWN"
+    );
+}
 
 
             if (product == null || !"ACTIVE".equals(product.getStatus())) {
-                throw new ResourceNotFoundException("Product not found or inactive: " + itemRequest.getProductId());
+                throw new OrderException(
+                        "Product not found or inactive: " + itemRequest.getProductId(),
+                        "PRODUCT_NOT_FOUND",
+                        HttpStatus.NOT_FOUND,
+                        "PRODUCT_NOT_FOUND"
+                );
             }
 
             BigDecimal price = product.getPrice();  // get real price
@@ -96,10 +118,20 @@ public class OrderService {
     public void confirmOrder(Long orderId) {
         Order order = orderRepository.findById(orderId);
         if (order == null) {
-            throw new ResourceNotFoundException("Order not found with id " + orderId);
+            throw new OrderException(
+                    "Order not found with id " + orderId,
+                    "ORDER_NOT_FOUND",
+                    HttpStatus.NOT_FOUND,
+                    "ORDER_NOT_FOUND"
+            );
         }
         if (!"CREATED".equals(order.getStatus())) {
-            throw new InvalidOrderStateException("Only CREATED orders can be confirmed");
+            throw new OrderException(
+                    "Only CREATED orders can be confirmed",
+                    "INVALID_ORDER_STATE",
+                    HttpStatus.BAD_REQUEST,
+                    "ORDER_STATE_INVALID"
+            );
         }
         PaymentRequest paymentRequest = new PaymentRequest();
         paymentRequest.setAmount(order.getTotalAmount());
@@ -107,38 +139,72 @@ public class OrderService {
         paymentRequest.setCurrency(order.getCurrency());
         paymentRequest.setMethod("UPI");
         paymentRequest.setIdempotencyKey("ORDER_" + orderId);
-        PaymentResponse paymentResponse =
-                restTemplate.postForObject(
-                        paymentServiceUrl + "/payments",
-                        paymentRequest,
-                        PaymentResponse.class
-                );
+        PaymentResponse paymentResponse;
+        try {
+            paymentResponse =
+                    restTemplate.postForObject(
+                            paymentServiceUrl + "/payments",
+                            paymentRequest,
+                            PaymentResponse.class
+                    );
+        }catch (RestClientException e) {
+            throw new OrderException(
+                    "Payment service unavailable for order " + orderId,
+                    "EXTERNAL_SERVICE_ERROR",
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "PAYMENT_SERVICE_DOWN"
+            );
+        }
         if (paymentResponse == null || paymentResponse.getPaymentId() == null) {
-            throw new ExternalServiceException("Payment failed for order " + orderId);
+            throw new OrderException(
+                    "Payment failed for order " + orderId,
+                    "PAYMENT_FAILED",
+                    HttpStatus.BAD_REQUEST,
+                    "PAYMENT_FAILED"
+            );
         }
         orderRepository.updatePayment(orderId, paymentResponse.getPaymentId());
         for (OrderItem item : orderRepository.findItemsByOrderId(orderId)) {//loop throgh all items in our orer
             String url = productServiceUrl + "/inventory/deduct?productId="
-                        + item.getProductId()
-                        + "&quantity=" + item.getQuantity();//to reduce stock
-
+                    + item.getProductId()
+                    + "&quantity=" + item.getQuantity();//to reduce stock
+            try {
                 restTemplate.postForObject(url, null, Void.class);
+            } catch (RestClientException e) {
+                throw new OrderException(
+                        "Inventory deduction failed for product " + item.getProductId(),
+                        "EXTERNAL_SERVICE_ERROR",
+                        HttpStatus.INTERNAL_SERVER_ERROR,
+                        "INVENTORY_DEDUCTION_FAILED"
+                );
             }
+        }
 
 
             orderRepository.updateStatus(orderId, "CONFIRMED");
 
-    }
+        }
     @Transactional
     public void cancelOrder(Long orderId) {
 
         Order order = orderRepository.findById(orderId);
         if (order == null) {
-            throw new ResourceNotFoundException("Order not found with id " + orderId);
+            throw new OrderException(
+                    "Order not found with id " + orderId,
+                    "ORDER_NOT_FOUND",
+                    HttpStatus.NOT_FOUND,
+                    "ORDER_NOT_FOUND"
+            );
+
         }
 
         if ("CANCELLED".equals(order.getStatus())) {
-            throw new InvalidOrderStateException("Order already cancelled");
+            throw new OrderException(
+                    "Order already cancelled",
+                    "INVALID_ORDER_STATE",
+                    HttpStatus.BAD_REQUEST,
+                    "ORDER_ALREADY_CANCELLED"
+            );
         }
 
         if ("CONFIRMED".equals(order.getStatus())) {
@@ -153,7 +219,13 @@ public class OrderService {
                     );
                 }
                 catch (RestClientException e) {
-                    throw new ExternalServiceException("Refund failed for payment " + order.getPaymentId());
+                    throw new OrderException(
+                            "Refund failed for payment " + order.getPaymentId(),
+                            "EXTERNAL_SERVICE_ERROR",
+                            HttpStatus.INTERNAL_SERVER_ERROR,
+                            "REFUND_FAILED"
+                    );
+                }
                 }
             }
 
@@ -167,13 +239,18 @@ public class OrderService {
 
                     restTemplate.postForObject(url, null, Void.class);
                 }catch (RestClientException e) {
-                    throw new ExternalServiceException("Inventory restore failed for product " + item.getProductId());
+                    throw new OrderException(
+                            "Inventory restore failed for product " + item.getProductId(),
+                            "EXTERNAL_SERVICE_ERROR",
+                            HttpStatus.INTERNAL_SERVER_ERROR,
+                            "INVENTORY_RESTORE_FAILED"
+                    );
                 }
 
             }
 
             orderRepository.updateStatus(orderId, "CANCELLED");
-        }
+
     }
     public Order getOrder(Long orderId) {
 
@@ -181,7 +258,12 @@ public class OrderService {
 
 
         if (order == null) {
-            throw new ResourceNotFoundException("Order not found with id " + orderId);
+            throw new OrderException(
+                    "Order not found with id " + orderId,
+                    "ORDER_NOT_FOUND",
+                    HttpStatus.NOT_FOUND,
+                    "ORDER_NOT_FOUND"
+            );
         }
 
         return order;

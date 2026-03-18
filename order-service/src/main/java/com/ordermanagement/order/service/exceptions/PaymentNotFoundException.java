@@ -2,7 +2,7 @@ package com.ordermanagement.order.service.exceptions;
 
 import org.springframework.http.HttpStatus;
 
-public class PaymentNotFoundException extends AppException {
+public class PaymentNotFoundException extends OrderException {
 
     public PaymentNotFoundException(String message) {
         super(

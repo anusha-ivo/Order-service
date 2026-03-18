@@ -3,7 +3,9 @@ package com.ordermanagement.order.service.repository;
 import com.ordermanagement.order.service.config.SqlQueryProvider;
 import com.ordermanagement.order.service.dto.Order;
 import com.ordermanagement.order.service.dto.OrderItem;
+import com.ordermanagement.order.service.exceptions.OrderException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -22,83 +24,115 @@ public class OrderRepository {
     }
 
     public Long insertOrder(Order order){
-        String insertOrderSql = sqlQueryProvider.getQuery("order.insert");
-        return jdbcTemplate.queryForObject(
-                insertOrderSql,
-                Long.class,
-                order.getCustomerId(),
-                order.getStatus(),
-                order.getTotalAmount(),
-                order.getCurrency(),
-                order.getPaymentId(),
-                order.getShippingAddress()
-        );
+        try {
+            String insertOrderSql = sqlQueryProvider.getQuery("order.insert");
+            return jdbcTemplate.queryForObject(
+                    insertOrderSql,
+                    Long.class,
+                    order.getCustomerId(),
+                    order.getStatus(),
+                    order.getTotalAmount(),
+                    order.getCurrency(),
+                    order.getPaymentId(),
+                    order.getShippingAddress()
+            );
+        }catch (Exception e) {
+            throw new OrderException("Failed to insert order", "ORDER_INSERT_FAILED", HttpStatus.INTERNAL_SERVER_ERROR, "DB_ERROR");
+        }
     }
     public void saveOrderItem(OrderItem item) {
-        String insertOrderItemSql = sqlQueryProvider.getQuery("order.insert");
-        jdbcTemplate.update(
-                insertOrderItemSql,
-                item.getOrderId(),
-                item.getProductId(),
-                item.getProductNameSnapshot(),
-                item.getUnitPriceSnapshot(),
-                item.getQuantity(),
-                item.getLineTotal()
-        );
+        try {
+            String insertOrderItemSql = sqlQueryProvider.getQuery("order.insert");
+            jdbcTemplate.update(
+                    insertOrderItemSql,
+                    item.getOrderId(),
+                    item.getProductId(),
+                    item.getProductNameSnapshot(),
+                    item.getUnitPriceSnapshot(),
+                    item.getQuantity(),
+                    item.getLineTotal()
+            );
+        }
+        catch (Exception e) {
+            throw new OrderException("Failed to save order item", "ORDERITEM_INSERT_FAILED", HttpStatus.INTERNAL_SERVER_ERROR, "DB_ERROR");
+        }
+
     }
     public List<OrderItem> findItemsByOrderId(Long orderId) {
         String findItemsSql =
                 sqlQueryProvider.getQuery("orderitem.findByOrderId");
-        return jdbcTemplate.query(
-                findItemsSql,
-                this::mapOrderItemRow,
-                orderId
-        );
+        try {
+            return jdbcTemplate.query(
+                    findItemsSql,
+                    this::mapOrderItemRow,
+                    orderId
+            );
+        }catch (Exception e) {
+            throw new OrderException("Failed to retrieve order items", "ORDERITEM_FETCH_FAILED", HttpStatus.INTERNAL_SERVER_ERROR, "DB_ERROR");
+        }
     }
     public Order findById(Long orderId) {
-        String  findByIdSql =
+        String findByIdSql =
                 sqlQueryProvider.getQuery("order.findById");
-        List<Order> orders = jdbcTemplate.query(
-                findByIdSql,
-                this::mapOrderRow,
-                orderId
-        );
+        try {
+            List<Order> orders = jdbcTemplate.query(
+                    findByIdSql,
+                    this::mapOrderRow,
+                    orderId
+            );
 
-        if (orders.isEmpty()) {
-            return null;
+            if (orders.isEmpty()) {
+                return null;
+            }
+
+            return orders.get(0);
+        }catch (Exception e) {
+            if (e instanceof OrderException) throw e;
+            throw new OrderException("Failed to retrieve order", "ORDER_FETCH_FAILED", HttpStatus.INTERNAL_SERVER_ERROR, "DB_ERROR");
         }
 
-        return orders.get(0);
     }
     public void updateStatus(Long orderId, String status) {
 
         String updateStatusSql =
                 sqlQueryProvider.getQuery("order.updateStatus");
                 sqlQueryProvider.getQuery("order.updatePayment");
-        jdbcTemplate.update(
-                updateStatusSql,
-                status,
-                orderId
-        );
+                try {
+                    jdbcTemplate.update(
+                            updateStatusSql,
+                            status,
+                            orderId
+                    );
+                }catch (Exception e) {
+                    throw new OrderException("Failed to update order status", "ORDER_UPDATE_STATUS_FAILED", HttpStatus.INTERNAL_SERVER_ERROR, "DB_ERROR");
+                }
     }
     public void updatePayment(Long orderId, Long paymentId) {
 
         String updatePaymentSql =
                 sqlQueryProvider.getQuery("order.updatePayment");
-        jdbcTemplate.update(
-                updatePaymentSql,
-                paymentId,
-                orderId
-        );
+        try {
+            jdbcTemplate.update(
+                    updatePaymentSql,
+                    paymentId,
+                    orderId
+            );
+        }catch (Exception e) {
+            throw new OrderException("Failed to update order payment", "ORDER_UPDATE_PAYMENT_FAILED", HttpStatus.INTERNAL_SERVER_ERROR, "DB_ERROR");
+        }
     }
     public void updateTotalAmount(Long orderId, BigDecimal totalAmount) {
         String updateTotalSql =
                 sqlQueryProvider.getQuery("order.updateStatus");
-        jdbcTemplate.update(
-                updateTotalSql,
-                totalAmount,
-                orderId
-        );
+        try {
+            jdbcTemplate.update(
+                    updateTotalSql,
+                    totalAmount,
+                    orderId
+            );
+        }catch (Exception e) {
+            throw new OrderException("Failed to update total amount", "ORDER_UPDATE_TOTAL_FAILED", HttpStatus.INTERNAL_SERVER_ERROR, "DB_ERROR");
+        }
     }
     private OrderItem mapOrderItemRow(ResultSet rs, int rowNum) throws SQLException {
 

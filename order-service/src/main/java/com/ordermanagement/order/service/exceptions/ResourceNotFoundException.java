@@ -2,7 +2,7 @@ package com.ordermanagement.order.service.exceptions;
 
 import org.springframework.http.HttpStatus;
 
-public class ResourceNotFoundException extends AppException {
+public class ResourceNotFoundException extends OrderException {
 
     public ResourceNotFoundException(String message) {
         super(

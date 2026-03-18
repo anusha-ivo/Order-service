@@ -1,27 +1,34 @@
 package com.ordermanagement.order.service.dto;
+
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.util.List;
 import java.util.Map;
+
 @Data
-    public class CreateOrderRequest {
+@Schema(description = "Request object to create a new order")
+public class CreateOrderRequest {
 
-        @NotNull
-        private Long customerId;
+    @NotNull
+    @Schema(description = "ID of the customer placing the order", example = "101", required = true)
+    private Long customerId;
 
-        @NotNull
-        private String currency;
+    @NotNull
+    @Schema(description = "Currency code for the order (ISO 4217)", example = "USD", required = true)
+    private String currency;
 
-        @NotNull
-        private Map<String, Object> shippingAddress;
+    @NotNull
+    @Schema(description = "Shipping address for the order as key-value pairs",
+            example = "{\"street\":\"123 Main St\", \"city\":\"New York\", \"zip\":\"10001\", \"country\":\"USA\"}",
+            required = true)
+    private Map<String, Object> shippingAddress;
 
-        @NotEmpty
-        @Valid
-        private List<OrderItemRequest> items;
-
-
-    }
-
+    @NotEmpty
+    @Valid
+    @Schema(description = "List of items to be ordered", required = true)
+    private List<OrderItemRequest> items;
+}

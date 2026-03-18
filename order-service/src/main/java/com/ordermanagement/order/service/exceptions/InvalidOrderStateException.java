@@ -2,7 +2,7 @@ package com.ordermanagement.order.service.exceptions;
 
 import org.springframework.http.HttpStatus;
 
-public class InvalidOrderStateException extends AppException {
+public class InvalidOrderStateException extends OrderException {
 
     public InvalidOrderStateException(String message) {
         super(
