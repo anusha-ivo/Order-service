@@ -50,13 +50,13 @@ public class OrderService {
     }
 
         BigDecimal totalAmount = BigDecimal.ZERO;
-        Order order = new Order();
+        Order order = new Order();//order obj
         order.setCustomerId(request.getCustomerId());
         order.setStatus("CREATED");
         order.setCurrency(request.getCurrency());
         order.setPaymentId(null);
     try {
-        String shippingJson = objectMapper.writeValueAsString(request.getShippingAddress());
+        String shippingJson = objectMapper.writeValueAsString(request.getShippingAddress());//java object to json
         order.setShippingAddress(shippingJson);
     } catch (Exception e) {
         throw new SerializationException("Failed to convert shipping address");
@@ -117,10 +117,10 @@ public class OrderService {
             throw new ExternalServiceException("Payment failed for order " + orderId);
         }
         orderRepository.updatePayment(orderId, paymentResponse.getPaymentId());
-        for (OrderItem item : orderRepository.findItemsByOrderId(orderId)) {
+        for (OrderItem item : orderRepository.findItemsByOrderId(orderId)) {//loop throgh all items in our orer
             String url = productServiceUrl + "/inventory/deduct?productId="
                         + item.getProductId()
-                        + "&quantity=" + item.getQuantity();
+                        + "&quantity=" + item.getQuantity();//to reduce stock
 
                 restTemplate.postForObject(url, null, Void.class);
             }
@@ -158,7 +158,7 @@ public class OrderService {
             }
 
 
-            for (OrderItem item : orderRepository.findItemsByOrderId(orderId)) {
+            for (OrderItem item : orderRepository.findItemsByOrderId(orderId)) {//fetch items to reduce
                 String url = productServiceUrl + "/inventory/restore?productId="
                         + item.getProductId()
                         + "&quantity=" + item.getQuantity();
