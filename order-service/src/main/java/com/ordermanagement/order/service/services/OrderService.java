@@ -1,7 +1,10 @@
 package com.ordermanagement.order.service.services;
 
 import com.ordermanagement.order.service.dto.*;
+import com.ordermanagement.order.service.exceptions.ExternalServiceException;
+import com.ordermanagement.order.service.exceptions.InvalidOrderStateException;
 import com.ordermanagement.order.service.exceptions.ResourceNotFoundException;
+import com.ordermanagement.order.service.exceptions.SerializationException;
 import com.ordermanagement.order.service.repository.OrderRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
@@ -42,7 +45,7 @@ public class OrderService {
     try{
         String url=customerServiceUrl+"/customers/"+request.getCustomerId();
         restTemplate.getForObject(url, Order.class);
-    } catch (Exception e) {
+    } catch (RestClientException e) {
         throw new ResourceNotFoundException("Customer not found with id " + request.getCustomerId());
     }
 
@@ -56,13 +59,15 @@ public class OrderService {
         String shippingJson = objectMapper.writeValueAsString(request.getShippingAddress());
         order.setShippingAddress(shippingJson);
     } catch (Exception e) {
-        throw new RuntimeException("Failed to convert shipping address");
+        throw new SerializationException("Failed to convert shipping address");
     }
         order.setTotalAmount(BigDecimal.ZERO);
         Long orderId = orderRepository.insertOrder(order);
         for (OrderItemRequest itemRequest : request.getItems()) {//bez it contains more products so loop through we
             String productUrl = productServiceUrl + "/products/" + itemRequest.getProductId();
-            ProductResponse product = restTemplate.getForObject(productUrl, ProductResponse.class);
+
+                ProductResponse product = restTemplate.getForObject(productUrl, ProductResponse.class);
+
 
             if (product == null || !"ACTIVE".equals(product.getStatus())) {
                 throw new ResourceNotFoundException("Product not found or inactive: " + itemRequest.getProductId());
@@ -94,7 +99,7 @@ public class OrderService {
             throw new ResourceNotFoundException("Order not found with id " + orderId);
         }
         if (!"CREATED".equals(order.getStatus())) {
-            throw new IllegalStateException("Only CREATED orders can be confirmed");
+            throw new InvalidOrderStateException("Only CREATED orders can be confirmed");
         }
         PaymentRequest paymentRequest = new PaymentRequest();
         paymentRequest.setAmount(order.getTotalAmount());
@@ -109,7 +114,7 @@ public class OrderService {
                         PaymentResponse.class
                 );
         if (paymentResponse == null || paymentResponse.getPaymentId() == null) {
-            throw new RuntimeException("Payment failed for order " + orderId);
+            throw new ExternalServiceException("Payment failed for order " + orderId);
         }
         orderRepository.updatePayment(orderId, paymentResponse.getPaymentId());
         for (OrderItem item : orderRepository.findItemsByOrderId(orderId)) {
@@ -133,18 +138,23 @@ public class OrderService {
         }
 
         if ("CANCELLED".equals(order.getStatus())) {
-            throw new RuntimeException("Order already cancelled");
+            throw new InvalidOrderStateException("Order already cancelled");
         }
 
         if ("CONFIRMED".equals(order.getStatus())) {
 
 
             if (order.getPaymentId() != null) {
-                restTemplate.postForObject(
-                        paymentServiceUrl + "/payments/" + order.getPaymentId() + "/refund",
-                        null,
-                        Void.class
-                );
+                try {
+                    restTemplate.postForObject(
+                            paymentServiceUrl + "/payments/" + order.getPaymentId() + "/refund",
+                            null,
+                            Void.class
+                    );
+                }
+                catch (RestClientException e) {
+                    throw new ExternalServiceException("Refund failed for payment " + order.getPaymentId());
+                }
             }
 
 
@@ -152,8 +162,14 @@ public class OrderService {
                 String url = productServiceUrl + "/inventory/restore?productId="
                         + item.getProductId()
                         + "&quantity=" + item.getQuantity();
+                try {
 
-                restTemplate.postForObject(url, null, Void.class);
+
+                    restTemplate.postForObject(url, null, Void.class);
+                }catch (RestClientException e) {
+                    throw new ExternalServiceException("Inventory restore failed for product " + item.getProductId());
+                }
+
             }
 
             orderRepository.updateStatus(orderId, "CANCELLED");

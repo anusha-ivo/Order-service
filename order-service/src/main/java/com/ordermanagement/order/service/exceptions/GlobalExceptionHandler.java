@@ -13,6 +13,7 @@ public class GlobalExceptionHandler {
 
     private Map<String, Object> buildError(
             String label,
+            String code,
             HttpStatus status,
             String message,
             String level,
@@ -20,7 +21,7 @@ public class GlobalExceptionHandler {
 
         return Map.of(
                 "label", label,
-                "code", String.valueOf(status.value()),
+                "code", code,
                 "level", level,
                 "severity", severity,
                 "message", message,
@@ -29,35 +30,23 @@ public class GlobalExceptionHandler {
         );
     }
 
-    @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<?> handleNotFound(ResourceNotFoundException ex) {
 
-        HttpStatus status = HttpStatus.NOT_FOUND;
+    @ExceptionHandler(AppException.class)
+    public ResponseEntity<?> handleAppException(AppException ex) {
 
         return new ResponseEntity<>(
-                buildError("Not Found",
-                        status,
+                buildError(
+                        ex.getLabel(),
+                        ex.getErrorCode(),
+                        ex.getStatus(),
                         ex.getMessage(),
                         "REQUEST",
-                        "NONFATAL"),
-                status
+                        "NONFATAL"
+                ),
+                ex.getStatus()
         );
     }
 
-    @ExceptionHandler(IllegalStateException.class)
-    public ResponseEntity<?> handleBadRequest(IllegalStateException ex) {
-
-        HttpStatus status = HttpStatus.BAD_REQUEST;
-
-        return new ResponseEntity<>(
-                buildError("Bad Request",
-                        status,
-                        ex.getMessage(),
-                        "REQUEST",
-                        "NONFATAL"),
-                status
-        );
-    }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<?> handleGeneric(Exception ex) {
@@ -66,11 +55,14 @@ public class GlobalExceptionHandler {
         ex.printStackTrace();
 
         return new ResponseEntity<>(
-                buildError("Internal Server Error",
+                buildError(
+                        "Internal Server Error",
+                        "INTERNAL_ERROR",
                         status,
                         "Something went wrong",
                         "SYSTEM",
-                        "FATAL"),
+                        "FATAL"
+                ),
                 status
         );
     }

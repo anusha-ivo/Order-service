@@ -1,5 +1,6 @@
 package com.ordermanagement.order.service.repository;
 
+import com.ordermanagement.order.service.config.SqlQueryProvider;
 import com.ordermanagement.order.service.dto.Order;
 import com.ordermanagement.order.service.dto.OrderItem;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,29 +15,14 @@ import java.util.List;
 @Repository
 public class OrderRepository {
     private final JdbcTemplate jdbcTemplate;
-    OrderRepository(JdbcTemplate jdbcTemplate){
+    private final SqlQueryProvider sqlQueryProvider;
+    OrderRepository(JdbcTemplate jdbcTemplate,SqlQueryProvider sqlQueryProvider){
         this.jdbcTemplate=jdbcTemplate;
+        this.sqlQueryProvider=sqlQueryProvider;
     }
-    @Value("${order.insert}")
-    private String insertOrderSql;
-    @Value("${orderitem.insert}")
-    private String insertOrderItemSql;
-    @Value("${order.findById}")
-    private String findByIdSql;
 
-    @Value("${orderitem.findByOrderId}")
-    private String findItemsSql;
-
-    @Value("${order.updateStatus}")
-    private String updateStatusSql;
-
-    @Value("${order.updatePayment}")
-    private String updatePaymentSql;
-
-    @Value("${order.updateTotal}")
-    private String updateTotalSql;
-   
     public Long insertOrder(Order order){
+        String insertOrderSql = sqlQueryProvider.getQuery("order.insert");
         return jdbcTemplate.queryForObject(
                 insertOrderSql,
                 Long.class,
@@ -49,7 +35,7 @@ public class OrderRepository {
         );
     }
     public void saveOrderItem(OrderItem item) {
-
+        String insertOrderItemSql = sqlQueryProvider.getQuery("order.insert");
         jdbcTemplate.update(
                 insertOrderItemSql,
                 item.getOrderId(),
@@ -61,7 +47,8 @@ public class OrderRepository {
         );
     }
     public List<OrderItem> findItemsByOrderId(Long orderId) {
-
+        String findItemsSql =
+                sqlQueryProvider.getQuery("orderitem.findByOrderId");
         return jdbcTemplate.query(
                 findItemsSql,
                 this::mapOrderItemRow,
@@ -69,7 +56,8 @@ public class OrderRepository {
         );
     }
     public Order findById(Long orderId) {
-
+        String  findByIdSql =
+                sqlQueryProvider.getQuery("order.findById");
         List<Order> orders = jdbcTemplate.query(
                 findByIdSql,
                 this::mapOrderRow,
@@ -84,6 +72,9 @@ public class OrderRepository {
     }
     public void updateStatus(Long orderId, String status) {
 
+        String updateStatusSql =
+                sqlQueryProvider.getQuery("order.updateStatus");
+                sqlQueryProvider.getQuery("order.updatePayment");
         jdbcTemplate.update(
                 updateStatusSql,
                 status,
@@ -92,6 +83,8 @@ public class OrderRepository {
     }
     public void updatePayment(Long orderId, Long paymentId) {
 
+        String updatePaymentSql =
+                sqlQueryProvider.getQuery("order.updatePayment");
         jdbcTemplate.update(
                 updatePaymentSql,
                 paymentId,
@@ -99,7 +92,8 @@ public class OrderRepository {
         );
     }
     public void updateTotalAmount(Long orderId, BigDecimal totalAmount) {
-
+        String updateTotalSql =
+                sqlQueryProvider.getQuery("order.updateStatus");
         jdbcTemplate.update(
                 updateTotalSql,
                 totalAmount,
