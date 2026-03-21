@@ -1,5 +1,5 @@
 
-package com.ordermanagement.order.service.dto;
+package com.ordermanagement.order.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

@@ -1,5 +1,6 @@
-package com.ordermanagement.order.service.dto;
+package com.ordermanagement.order.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -39,9 +40,5 @@ public class Order {
             required = true)
     private String shippingAddress;
 
-    @Schema(description = "Timestamp when the order was created")
-    private LocalDateTime createdAt;
 
-    @Schema(description = "Timestamp when the order was last updated")
-    private LocalDateTime updatedAt;
 }

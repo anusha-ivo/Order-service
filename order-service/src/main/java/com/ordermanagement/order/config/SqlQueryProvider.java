@@ -1,4 +1,4 @@
-package com.ordermanagement.order.service.config;
+package com.ordermanagement.order.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;

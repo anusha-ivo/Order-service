@@ -1,10 +1,8 @@
-package com.ordermanagement.order.service.controller;
+package com.ordermanagement.order.controller;
 
-import com.ordermanagement.order.service.dto.CreateOrderRequest;
-import com.ordermanagement.order.service.dto.Order;
-import com.ordermanagement.order.service.dto.OrderItem;
-import com.ordermanagement.order.service.dto.OrderResponse;
-import com.ordermanagement.order.service.services.OrderService;
+import com.ordermanagement.order.dto.CreateOrderRequest;
+import com.ordermanagement.order.dto.OrderResponse;
+import com.ordermanagement.order.services.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -14,12 +12,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 @RestController
 @Tag(name = "Order Controller", description = "Handles order lifecycle operations")
 @RequestMapping("/orders")
-
 public class OrderController {
 
     private final OrderService service;
@@ -28,6 +23,7 @@ public class OrderController {
         this.service = service;
     }
 
+
     @Operation(summary = "Create Order", description = "Creates a new order with items")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Order created successfully"),
@@ -35,17 +31,16 @@ public class OrderController {
             @ApiResponse(responseCode = "404", description = "Customer/Product not found"),
             @ApiResponse(responseCode = "502", description = "External service failure")
     })
-
     @PostMapping
-    public ResponseEntity<Order> createOrder(
-            @Valid @RequestBody CreateOrderRequest request) {//remove this exception
+    public ResponseEntity<OrderResponse> createOrder(
+            @Valid @RequestBody CreateOrderRequest request) {
 
         Long orderId = service.createOrder(request);
-
-        Order order = service.getOrder(orderId); // fetch full order
+        OrderResponse order = service.getOrder(orderId);
 
         return new ResponseEntity<>(order, HttpStatus.CREATED);
     }
+
 
     @Operation(summary = "Confirm Order", description = "Confirms order and triggers payment + inventory deduction")
     @ApiResponses(value = {
@@ -55,15 +50,13 @@ public class OrderController {
             @ApiResponse(responseCode = "502", description = "Payment/Inventory service failure")
     })
     @PostMapping("/{id}/confirm")
-    public ResponseEntity<Order> confirmOrder(@PathVariable Long id) {
+    public ResponseEntity<OrderResponse> confirmOrder(@PathVariable Long id) {
 
         service.confirmOrder(id);
-
-        Order order = service.getOrder(id);
+        OrderResponse order = service.getOrder(id);
 
         return ResponseEntity.ok(order);
     }
-
 
 
     @Operation(summary = "Cancel Order", description = "Cancels order and triggers refund + inventory restore")
@@ -73,16 +66,15 @@ public class OrderController {
             @ApiResponse(responseCode = "404", description = "Order not found"),
             @ApiResponse(responseCode = "502", description = "External service failure")
     })
-
     @PostMapping("/{id}/cancel")
-    public ResponseEntity<Order> cancelOrder(@PathVariable Long id) {
+    public ResponseEntity<OrderResponse> cancelOrder(@PathVariable Long id) {
 
         service.cancelOrder(id);
-
-        Order order = service.getOrder(id);
+        OrderResponse order = service.getOrder(id);
 
         return ResponseEntity.ok(order);
     }
+
 
     @Operation(summary = "Get Order", description = "Fetch order details with items")
     @ApiResponses(value = {
@@ -92,10 +84,7 @@ public class OrderController {
     @GetMapping("/{id}")
     public ResponseEntity<OrderResponse> getOrder(@PathVariable Long id) {
 
-        Order order = service.getOrder(id);
-        List<OrderItem> items = service.getOrderItems(id);
-
-        OrderResponse response = new OrderResponse(order, items);
+        OrderResponse response = service.getOrder(id);
 
         return ResponseEntity.ok(response);
     }

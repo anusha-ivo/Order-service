@@ -1,4 +1,4 @@
-package com.ordermanagement.order.service.dto;
+package com.ordermanagement.order.dto;
 
 
 

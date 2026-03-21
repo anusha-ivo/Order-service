@@ -1,4 +1,4 @@
-package com.ordermanagement.order.service.exceptions;
+package com.ordermanagement.order.exceptions;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
