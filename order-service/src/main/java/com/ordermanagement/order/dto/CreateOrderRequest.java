@@ -17,9 +17,7 @@ public class CreateOrderRequest {
     @Schema(description = "ID of the customer placing the order", example = "101", required = true)
     private Long customerId;
 
-    @NotNull
-    @Schema(description = "Currency code for the order (ISO 4217)", example = "USD", required = true)
-    private String currency;
+
 
     @NotNull
     @Schema(description = "Shipping address for the order as key-value pairs",

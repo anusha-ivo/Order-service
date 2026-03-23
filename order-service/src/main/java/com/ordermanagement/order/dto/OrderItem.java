@@ -23,7 +23,7 @@ public class OrderItem {
 
     @NotNull
     @Schema(description = "Snapshot of the product name at the time of order", example = "Wireless Mouse", required = true)
-    private String productNameSnapshot;
+    private String productName;
 
     @NotNull
     @Schema(description = "Snapshot of the product unit price at the time of order", example = "25.50", required = true)

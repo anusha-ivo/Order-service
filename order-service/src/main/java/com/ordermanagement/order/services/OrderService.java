@@ -208,7 +208,7 @@ public class OrderService {
             dto.setOrderItemId(item.getOrderItemId());
             dto.setOrderId(item.getOrderId());
             dto.setProductId(item.getProductId());
-            dto.setProductNameSnapshot(item.getProductNameSnapshot());
+            dto.setProductName(item.getProductNameSnapshot());
             dto.setUnitPriceSnapshot(item.getUnitPriceSnapshot());
             dto.setQuantity(item.getQuantity());
             dto.setLineTotal(item.getLineTotal());
@@ -223,8 +223,8 @@ public class OrderService {
         OrderEntity order = new OrderEntity();
         order.setCustomerId(request.getCustomerId());
         order.setStatus("CREATED");
-        order.setCurrency(request.getCurrency());
         order.setPaymentId(null);
+        order.setCurrency("INR");
         order.setShippingAddress(shippingJson);
         order.setTotalAmount(BigDecimal.ZERO);
         return order;
